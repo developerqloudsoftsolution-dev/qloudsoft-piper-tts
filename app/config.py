@@ -5,15 +5,16 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Settings:
-    """Application configuration loaded from environment variables."""
+    """Application configuration for MMS-TTS Hindi Microservice."""
 
-    # Default Voice model (Ultra-realistic Hindi & Hinglish Neural Voice: hi-IN-SwaraNeural)
-    DEFAULT_VOICE: str = os.getenv("DEFAULT_VOICE", os.getenv("PIPER_MODEL", "hi-IN-SwaraNeural"))
-    
-    # Piper model for offline fallback
+    # Default Voice model (Meta MMS-TTS Hindi: facebook/mms-tts-hin)
+    DEFAULT_VOICE: str = os.getenv("DEFAULT_VOICE", os.getenv("MMS_MODEL_ID", "facebook/mms-tts-hin"))
+    MMS_MODEL_ID: str = os.getenv("MMS_MODEL_ID", "facebook/mms-tts-hin")
+
+    # Offline Piper model (Kept only for fallback/rollback capability; NOT loaded by default)
     PIPER_MODEL: str = os.getenv("PIPER_MODEL", "hi_IN-priyamvada-medium")
 
-    # Directory where voice models (.onnx and .onnx.json) are stored
+    # Directory where voice models or huggingface cache can be stored
     MODEL_DIR: Path = Path(os.getenv("MODEL_DIR", str(Path(__file__).resolve().parent.parent / "models")))
 
     # Maximum allowed text length per request to prevent high latency & memory spikes
@@ -25,8 +26,8 @@ class Settings:
     # Default voice pitch (e.g. '+0Hz', '+2Hz')
     DEFAULT_PITCH: str = os.getenv("DEFAULT_PITCH", "+0Hz")
 
-    # Default output audio format ('mp3' or 'wav')
-    DEFAULT_FORMAT: str = os.getenv("DEFAULT_FORMAT", "mp3")
+    # Default output audio format ('wav' for browser playback / MMS output)
+    DEFAULT_FORMAT: str = os.getenv("DEFAULT_FORMAT", "wav")
 
     # Optional API key for Bearer token authentication (empty = open access)
     API_KEY: str = os.getenv("API_KEY", "").strip()
@@ -40,7 +41,7 @@ class Settings:
 
     @property
     def model_onnx_path(self) -> Path:
-        """Returns the full path to the .onnx model file."""
+        """Legacy helper: full path to .onnx model file (dormant)."""
         model_name = self.PIPER_MODEL
         if not model_name.endswith(".onnx"):
             model_name = f"{model_name}.onnx"
@@ -48,7 +49,7 @@ class Settings:
 
     @property
     def model_config_path(self) -> Path:
-        """Returns the full path to the .onnx.json config file."""
+        """Legacy helper: full path to .onnx.json config file (dormant)."""
         model_name = self.PIPER_MODEL
         if model_name.endswith(".onnx"):
             config_name = f"{model_name}.json"

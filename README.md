@@ -1,19 +1,22 @@
-# 🎙️ Realistic Hindi Neural TTS Microservice • Qloudflow
+# 🎙️ Meta MMS-TTS Hindi Microservice • Qloudflow
 
-A high-definition, production-ready **Text-to-Speech (TTS) REST API** featuring **Studio-Grade Neural Indian Voices** (Powered by Microsoft Azure Neural models via Edge-TTS) with offline **Piper ONNX fallback**, specifically optimized for WhatsApp Voice Notes, Voice Calling Agents, and conversational AI assistants.
+A lightweight, production-ready **Text-to-Speech (TTS) REST API** powered by **Meta's Massively Multilingual Speech (MMS) Hindi Model** (`facebook/mms-tts-hin`) via Hugging Face Transformers. Specifically engineered for **low-memory, CPU-only environments** such as the Render Free tier (512MB RAM).
 
 ---
 
 ## ✨ Key Features
 
-* **🇮🇳 Ultra-Realistic Hindi & Hinglish Voices**: Built-in **`hi-IN-SwaraNeural`** (Warm, natural, expressive Indian Hindi female voice) and **`hi-IN-MadhurNeural`** (Studio-grade Hindi male voice).
-* **💰 100% Free & Zero API Keys**: Requires no cloud billing or API keys; generates crystalline studio-grade MP3/WAV speech.
-* **🌐 Indian Regional Languages**: Full support for Indian English (`en-IN-NeerjaNeural`, `en-IN-PrabhatNeural`), Marathi (`mr-IN-AarohiNeural`), Gujarati (`gu-IN-DhwaniNeural`), Bengali (`bn-IN-TanishaaNeural`), Tamil (`ta-IN-PallaviNeural`), Telugu (`te-IN-ShrutiNeural`), Urdu (`ur-IN-GulNeural`), etc.
-* **⚡ Ultra-Low Latency & High Fidelity**: Generates streaming audio in under 200ms with natural human cadence, breathing, and prosody.
-* **📴 Offline Piper Fallback**: Retains offline Piper ONNX engine (`hi_IN-priyamvada-medium`, `hi_IN-rohan-medium`, `en_GB-jenny_dioco-medium`) for zero-internet environments.
-* **🎨 Interactive Voice Studio UI**: Modern web dashboard at `http://localhost:8000/` with live audio player, sample prompt buttons, speed/pitch controls, and code snippets.
-* **🔒 Bearer Token Security**: Optional API key authentication via `Authorization: Bearer <API_KEY>` header.
-* **🌐 Plug-and-Play Laravel Integration**: Native support in `laravel-whatsapp-manager` Voice Agent.
+* **🇮🇳 Meta MMS Hindi (`facebook/mms-tts-hin`)**: Official VITS end-to-end neural Text-to-Speech model trained on native Hindi speech datasets.
+* **⚡ Ultra-Low Memory Footprint (< 512MB RAM)**: 
+  * Uses CPU-only PyTorch builds (~150MB instead of 2GB+ CUDA).
+  * Limits PyTorch thread concurrency (`OMP_NUM_THREADS=2`) to prevent CPU/RAM thrashing.
+  * Discards intermediate PyTorch tensors immediately upon inference completion with explicit garbage collection.
+* **🚀 Single Startup Model Loading**: Loads model weights and tokenizer once into memory at application lifespan startup (singleton pattern).
+* **🔊 Standard WAV Audio Output**: Returns 16kHz 16-bit mono PCM WAV audio directly compatible with HTML5 `<audio>`, browser Web Audio API, and telephony voice engines.
+* **🔤 Clean Input Preprocessing**: Accepts standard Devanagari Hindi Unicode text (`नमस्ते, आप कैसे हैं?`) and handles Roman Hindi/Hinglish text gracefully.
+* **📴 Piper Code Rollback Ready**: Retains legacy Piper code structures for rollback capability without initializing or consuming memory.
+* **🎨 Web Dashboard & Playground**: Interactive UI at `http://localhost:8000/` for instant speech testing and parameter tuning.
+* **🔒 Optional API Key Security**: Bearer token authentication via `Authorization: Bearer <API_KEY>` header.
 
 ---
 
@@ -23,46 +26,40 @@ A high-definition, production-ready **Text-to-Speech (TTS) REST API** featuring 
 piper-tts/
 ├── app/
 │   ├── __init__.py           # Package marker
-│   ├── config.py             # App configuration & voice settings
+│   ├── config.py             # MMS Model & Server configuration
 │   ├── main.py               # FastAPI application & REST endpoints
-│   ├── piper_service.py      # Unified Neural & Offline TTS Service
-│   └── ui.py                 # Interactive web dashboard & voice studio
+│   ├── piper_service.py      # Meta MMS-TTS Hindi VITS Service Layer
+│   └── ui.py                 # Interactive web dashboard
 ├── models/
-│   └── .gitkeep              # Directory for downloaded .onnx voice models
-├── download_model.py         # Voice model downloader
-├── test_client.py            # Automated test suite for health, audio, base64 & voices
-├── requirements.txt          # Python dependencies (FastAPI, edge-tts, piper-tts, etc.)
-├── Dockerfile                # Docker container definition
-├── render.yaml               # Render Blueprint deployment specification
-├── .env.example              # Sample environment configuration
-└── README.md                 # Documentation
+│   └── .gitkeep              # Directory for cached models
+├── requirements.txt          # Python dependencies (FastAPI, PyTorch CPU, Transformers)
+├── Dockerfile                # CPU-optimized Dockerfile for Render Free
+├── render.yaml               # Render Blueprint specification
+└── README.md                 # Technical documentation
 ```
 
 ---
 
-## 🎤 Star Indian Voices
+## ⚙️ Environment Variables
 
-| Voice ID | Language | Gender | Quality | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| **`hi-IN-SwaraNeural`** *(Default)* | Hindi / Hinglish | Female | **Neural HD (Star)** | Ultra-realistic, expressive, human-grade Indian Hindi female voice. Perfect for conversational voice notes. |
-| **`hi-IN-MadhurNeural`** | Hindi / Hinglish | Male | **Neural HD** | Confident, clear, studio-grade Indian Hindi male voice. |
-| **`en-IN-NeerjaNeural`** | Indian English | Female | **Neural HD** | Fluent Indian-accented English female voice for professional customer communication. |
-| **`en-IN-PrabhatNeural`** | Indian English | Male | **Neural HD** | Professional Indian-accented English male voice for corporate notifications. |
-| **`mr-IN-AarohiNeural`** | Marathi | Female | **Neural HD** | Natural Marathi female voice. |
-| **`gu-IN-DhwaniNeural`** | Gujarati | Female | **Neural HD** | Natural Gujarati female voice. |
-| **`hi_IN-priyamvada-medium`** | Hindi | Female | Medium (Offline) | Local offline Piper ONNX model. |
-
+| Variable | Default Value | Description |
+| :--- | :--- | :--- |
+| `MMS_MODEL_ID` | `facebook/mms-tts-hin` | Hugging Face MMS Hindi model identifier. |
+| `DEFAULT_VOICE` | `facebook/mms-tts-hin` | Default voice model name used in synthesis requests. |
+| `MAX_TEXT_LENGTH` | `1000` | Maximum character length per request to protect memory. |
+| `DEFAULT_FORMAT` | `wav` | Default audio format (`wav`). |
+| `API_KEY` | *(empty)* | Optional Bearer token for authentication (empty = open access). |
+| `PORT` | `8000` | Server binding port (Render sets `$PORT` dynamically). |
+| `HOST` | `0.0.0.0` | Server binding host. |
+| `LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
 
 ---
 
-## 🚀 Quickstart & Local Installation
+## 🚀 Local Development Setup
 
 ### 1. Prerequisites
-* Python 3.11+
-* `espeak-ng` (Phonemizer used by Piper)
-  * **Ubuntu/Debian**: `sudo apt-get install espeak-ng`
-  * **macOS**: `brew install espeak`
-  * **Windows**: Handled automatically in Docker
+* Python 3.10+ (or Python 3.11/3.12)
+* `pip` and virtual environment support
 
 ### 2. Setup Virtual Environment
 ```bash
@@ -76,237 +73,108 @@ source venv/bin/activate
 venv\Scripts\activate
 ```
 
-### 3. Install Dependencies
+### 3. Install Dependencies (CPU-Optimized)
 ```bash
+# Install PyTorch CPU build
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# Install remaining dependencies
 pip install -r requirements.txt
 ```
 
-### 4. Download Voice Model
+### 4. Run the Local Microservice
 ```bash
-python download_model.py en_US-amy-low
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
-*This downloads `en_US-amy-low.onnx` and `en_US-amy-low.onnx.json` into the `models/` directory.*
-
-### 5. Run the Server Locally
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
+Open **`http://127.0.0.1:8000`** in your browser to access the interactive web playground.
 
 ---
 
-## 🧪 Testing the API
+## ☁️ Render Deployment (Free Tier 512MB RAM)
 
-### 1. Health Check (`GET /health`)
-```bash
-curl -X GET http://localhost:8000/health
+### 1. Memory Optimization Strategy
+Render's free tier imposes a strict **512MB RAM** ceiling. To guarantee stability:
+1. **CPU PyTorch Build**: `Dockerfile` installs `torch` directly from `https://download.pytorch.org/whl/cpu`, avoiding ~2.5GB of unused CUDA binaries.
+2. **Pre-Cached Weights**: The Docker build pre-caches `facebook/mms-tts-hin` (~145MB) during image construction, eliminating download lag and memory spikes on container cold start.
+3. **Thread Limiting**: `OMP_NUM_THREADS=2` and `MKL_NUM_THREADS=2` prevent PyTorch from spawning excessive threads on Render's shared vCPUs.
+
+### 2. Deploy via Render Blueprint
+1. Push this repository to GitHub/GitLab.
+2. In the Render Dashboard, click **New +** → **Blueprint**.
+3. Select your repository. Render will automatically detect [`render.yaml`](./render.yaml).
+4. Click **Apply** to deploy.
+
+---
+
+## 🧪 REST API Reference
+
+### 1. Health & Status Check
+```http
+GET /health
 ```
 **Response (200 OK):**
 ```json
 {
   "status": "ok",
-  "model": "en_US-amy-low",
-  "sample_rate": 22050
+  "engine": "mms-tts-hin",
+  "default_voice": "facebook/mms-tts-hin",
+  "is_loaded": true,
+  "sample_rate": 16000,
+  "error": null
 }
 ```
 
 ---
 
-### 2. Generate Speech Audio (`POST /tts`)
-Returns binary WAV audio directly.
+### 2. Generate Speech (Binary WAV Stream)
+```http
+POST /tts
+Content-Type: application/json
 
-```bash
-curl -X POST http://localhost:8000/tts \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your_secret_api_key_here" \
-  -d '{"text": "Hello! I am Ananya from Qloudsoft Solutions. How can I help you today?"}' \
-  --output speech.wav
+{
+  "text": "नमस्ते, आप कैसे हैं?",
+  "voice": "facebook/mms-tts-hin",
+  "format": "wav"
+}
 ```
+**Response (200 OK):** Returns raw `audio/wav` binary stream.
 
 ---
 
-### 3. Generate Speech in Base64 (`POST /tts/base64`)
-Returns a JSON object with base64 audio.
+### 3. Direct Streaming GET Endpoint (for HTML5 Audio)
+```http
+GET /tts?text=नमस्ते,%20आप%20कैसे%20हैं?&format=wav
+```
+**Response (200 OK):** Returns streamable `audio/wav`.
 
-```bash
-curl -X POST http://localhost:8000/tts/base64 \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your_secret_api_key_here" \
-  -d '{"text": "Your website package details are ready."}'
+---
+
+### 4. Base64 JSON Audio Endpoint
+```http
+POST /tts/base64
+Content-Type: application/json
+
+{
+  "text": "नमस्ते! क्लाउडसॉफ्ट सॉल्यूशंस में आपका स्वागत है।"
+}
 ```
 **Response (200 OK):**
 ```json
 {
-  "audio_base64": "UklGRiS6AABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ...",
-  "format": "wav"
+  "audio_base64": "UklGRiQAAABXQVZFZm10IBAAAAABAAEA...",
+  "format": "wav",
+  "voice": "facebook/mms-tts-hin"
 }
 ```
 
 ---
 
-### 4. Run Automated Test Suite
-```bash
-python test_client.py --url http://localhost:8000 --key your_secret_api_key_here
-```
+## ⚡ Laravel Voice Agent Integration
 
----
-
-## 🌐 Deploying to Render Free Tier
-
-### Option A: 1-Click Render Blueprint (Recommended)
-1. Push this `piper-tts` repository to GitHub.
-2. Log into [Render Dashboard](https://dashboard.render.com).
-3. Click **New +** -> **Blueprint**.
-4. Connect your GitHub repository.
-5. Render will automatically read `render.yaml` and configure:
-   * **Runtime**: Docker
-   * **Plan**: Free
-   * **Health Check**: `/health`
-   * **Port**: Automatically routed to `$PORT`
-6. *(Optional)* Add your `API_KEY` in the Render Environment Variables tab.
-7. Click **Apply**! Your API will be live in 2–3 minutes at `https://your-service-name.onrender.com`.
-
----
-
-### Option B: Manual Web Service Setup on Render
-1. In Render Dashboard, click **New +** -> **Web Service**.
-2. Select **Build and deploy from a Git repository**.
-3. Choose **Docker** as the Environment.
-4. Set **Plan** to **Free**.
-5. Under **Environment Variables**, add:
-   * `PIPER_MODEL`: `en_US-amy-low`
-   * `MAX_TEXT_LENGTH`: `500`
-   * `API_KEY`: `your_secret_api_key_here`
-6. Click **Deploy Web Service**.
-
----
-
-## 📱 Integration Guide: Laravel Application
-
-Here is how to call this Render Piper TTS microservice from your Laravel Voice Agent (`laravel-whatsapp-manager`):
-
-### 1. Configure `.env` in Laravel
-Add your Render URL and API key to `laravel-whatsapp-manager/.env`:
-```env
-PIPER_TTS_URL=https://your-app.onrender.com
-PIPER_TTS_API_KEY=your_secret_api_key_here
-```
-
-### 2. Laravel Service Method (`VoiceAgentService.php` or Controller)
-```php
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-
-/**
- * Generate speech audio from text using Render Piper TTS API.
- *
- * @param string $text Clean text to synthesize (1-2 sentences recommended)
- * @return string|null Raw WAV binary audio bytes or null on failure
- */
-public function synthesizeSpeech(string $text): ?string
-{
-    $ttsUrl = rtrim(config('services.piper_tts.url', env('PIPER_TTS_URL', 'http://localhost:8000')), '/');
-    $apiKey = config('services.piper_tts.api_key', env('PIPER_TTS_API_KEY', ''));
-
-    try {
-        $client = Http::timeout(10)->withoutVerifying();
-        
-        if (!empty($apiKey)) {
-            $client = $client->withToken($apiKey);
-        }
-
-        $response = $client->post("{$ttsUrl}/tts", [
-            'text' => $text,
-        ]);
-
-        if ($response->successful() && $response->header('Content-Type') === 'audio/wav') {
-            return $response->body(); // Binary WAV audio bytes
-        }
-
-        Log::error('Piper TTS API error: ' . $response->status() . ' - ' . $response->body());
-        return null;
-    } catch (\Exception $e) {
-        Log::error('Piper TTS Exception: ' . $e->getMessage());
-        return null;
-    }
-}
-```
-
-### 3. Returning Audio in a Laravel Controller / API
-```php
-public function playSpeech(Request $request, VoiceAgentService $voiceAgent)
-{
-    $text = $request->input('text', 'Hello from Qloudsoft Voice Agent!');
-    $audioBytes = $voiceAgent->synthesizeSpeech($text);
-
-    if (!$audioBytes) {
-        return response()->json(['error' => 'TTS synthesis failed'], 500);
-    }
-
-    return response($audioBytes, 200, [
-        'Content-Type' => 'audio/wav',
-        'Content-Disposition' => 'inline; filename="agent_reply.wav"',
-    ]);
-}
-```
-
----
-
-## 📞 Integration Guide: Python Voice Calling Agent
-
-```python
-import requests
-
-def speak_text(text: str, output_path: str = "reply.wav"):
-    api_url = "https://your-app.onrender.com/tts"
-    headers = {
-        "Authorization": "Bearer your_secret_api_key_here",
-        "Content-Type": "application/json"
-    }
-    payload = {"text": text}
-
-    response = requests.post(api_url, json=payload, headers=headers, timeout=10)
-    if response.status_code == 200:
-        with open(output_path, "wb") as f:
-            f.write(response.content)
-        print(f"Audio ready: {output_path}")
-        return output_path
-    else:
-        raise RuntimeError(f"TTS Failed ({response.status_code}): {response.text}")
-
-# Example usage:
-speak_text("Namaste! Welcome to Qloudsoft Solutions.")
-```
-
----
-
-## 📊 Resource & Performance Benchmarks
-
-Measured on **Render Free Tier (0.1 CPU core, 512 MB RAM limit)**:
-
-| Metric | Result |
-| :--- | :--- |
-| **Idle Memory (RAM)** | **~55 MB - 70 MB** (Well below 512MB limit) |
-| **Peak Inference Memory** | **~75 MB - 90 MB** |
-| **Inference Latency (Short Sentence, ~10 words)** | **~150ms – 250ms** |
-| **Inference Latency (Medium Sentence, ~25 words)** | **~350ms – 550ms** |
-| **Model Load Time** | **< 1.0s** (Loaded once during container boot) |
-| **Docker Image Size** | **~240 MB** compressed |
-
----
-
-## ⚠️ Render Free Tier Notes & Best Practices
-
-1. **Inactivity Sleep (Cold Start)**:
-   * Render's free tier spins down web services after **15 minutes of inactivity**.
-   * The first request after a spin-down will take **~30–50 seconds** to wake up the container.
-   * **Tip for Voice Agents**: Use a free uptime monitor (e.g. [UptimeRobot](https://uptimerobot.com) or [Cron-Job.org](https://cron-job.org)) to ping `GET /health` every 10 minutes to keep the service warm and responsive 24/7!
-2. **Short Sentences for Real-time Voice**:
-   * For conversational phone calls, generate responses in chunks of **1 to 2 sentences** (e.g. 10–20 words) for instantaneous audio streaming and natural conversational pacing.
-3. **RAM Limits**:
-   * Stick with `-low` or `-medium` models (`en_US-amy-low`, `en_US-lessac-low`). Do not use high-precision 500MB+ models which exceed free tier CPU/RAM budgets.
-
----
-
-## 📜 License
-
-This project is licensed under the MIT License. Piper models are provided under open-source licenses by the Piper TTS / Rhasspy community.
+To connect this MMS-TTS microservice to the Laravel Voice Calling Agent:
+1. Update `laravel-whatsapp-manager/.env`:
+   ```env
+   TTS_ENGINE=mms_hindi
+   PIPER_TTS_URL=http://127.0.0.1:8000
+   ```
+2. The Voice Agent automatically streams WAV audio generated by `facebook/mms-tts-hin`.

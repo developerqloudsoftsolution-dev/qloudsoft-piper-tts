@@ -4,6 +4,7 @@ import wave
 import base64
 import logging
 import asyncio
+import gc
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Tuple
 
@@ -11,233 +12,145 @@ from app.config import settings
 
 logger = logging.getLogger("tts_service")
 
-# Check Edge-TTS availability
+# PyTorch & Transformers for Meta MMS-TTS Hindi VITS
+try:
+    import torch
+    from transformers import VitsModel, AutoTokenizer
+    import numpy as np
+    MMS_AVAILABLE = True
+except ImportError as e:
+    MMS_AVAILABLE = False
+    logger.warning(f"MMS-TTS dependencies not available: {e}")
+
+# Edge-TTS for Studio-Grade Uplifting Female Neural Voices
 try:
     import edge_tts
     EDGE_TTS_AVAILABLE = True
 except ImportError:
     EDGE_TTS_AVAILABLE = False
-    logger.warning("edge-tts package is not installed. Neural Azure voices will not be available.")
-
-# Check Piper availability
-try:
-    from piper.voice import PiperVoice
-    PIPER_AVAILABLE = True
-except ImportError:
-    PIPER_AVAILABLE = False
-    logger.warning("piper-tts package is not installed. Offline ONNX voices will not be available.")
+    logger.warning("edge-tts package is not installed.")
 
 
-# Comprehensive Voice Catalog with Indian & Neural Voices prioritized
+# Curated catalog: 100% Uplifting, Gen-Z, and Youthful Female Voices ONLY
 VOICE_METADATA: Dict[str, Dict[str, Any]] = {
-    # --- Top Realistic Neural Indian Voices (Primary) ---
     "hi-IN-SwaraNeural": {
         "id": "hi-IN-SwaraNeural",
-        "name": "Swara (Human HD)",
+        "name": "Swara (Uplifting Gen-Z Hindi HD)",
         "language": "Hindi / Hinglish",
         "locale": "hi_IN",
         "gender": "Female",
-        "quality": "Neural HD (Ultra-Realistic)",
+        "quality": "Neural HD (Star Female)",
         "flag": "🇮🇳",
-        "engine": "neural",
+        "engine": "neural_azure",
         "is_star": True,
-        "description": "Ultra-realistic natural Indian Hindi & Hinglish female voice. Expressive, warm, and human-grade tone."
-    },
-    "hi-IN-MadhurNeural": {
-        "id": "hi-IN-MadhurNeural",
-        "name": "Madhur (Human HD)",
-        "language": "Hindi / Hinglish",
-        "locale": "hi_IN",
-        "gender": "Male",
-        "quality": "Neural HD (Ultra-Realistic)",
-        "flag": "🇮🇳",
-        "engine": "neural",
-        "is_star": True,
-        "description": "Studio-quality realistic Indian Hindi & Hinglish male voice with confident and clear diction."
+        "is_default": True,
+        "description": "Ultra-realistic, youthful, and energetic Gen-Z Indian Hindi & Hinglish female voice with lively natural inflection."
     },
     "en-IN-NeerjaNeural": {
         "id": "en-IN-NeerjaNeural",
-        "name": "Neerja (Indian English)",
-        "language": "English (India)",
+        "name": "Neerja (Cheerful Hinglish & English)",
+        "language": "Indian English / Hinglish",
         "locale": "en_IN",
         "gender": "Female",
-        "quality": "Neural HD (Fluent)",
+        "quality": "Neural HD (Upbeat Female)",
         "flag": "🇮🇳",
-        "engine": "neural",
-        "is_star": False,
-        "description": "Natural Indian-accented English female voice for professional customer communication."
+        "engine": "neural_azure",
+        "is_star": True,
+        "is_default": False,
+        "description": "Vibrant, cheerful, and uplifting Indian female voice with modern conversational cadence."
     },
-    "en-IN-PrabhatNeural": {
-        "id": "en-IN-PrabhatNeural",
-        "name": "Prabhat (Indian English)",
-        "language": "English (India)",
-        "locale": "en_IN",
-        "gender": "Male",
-        "quality": "Neural HD (Fluent)",
+    "mms-uplifting-female": {
+        "id": "mms-uplifting-female",
+        "name": "Meta MMS Uplifting Hindi (VITS)",
+        "language": "Hindi (हिंदी)",
+        "locale": "hi_IN",
+        "gender": "Female",
+        "quality": "MMS VITS (1.2x Fast & Lively)",
         "flag": "🇮🇳",
-        "engine": "neural",
+        "engine": "meta_mms",
         "is_star": False,
-        "description": "Natural Indian-accented English male voice for corporate notifications and updates."
+        "is_default": False,
+        "description": "Meta MMS Hindi neural model tuned with a 1.2x fast, upbeat tempo and expressive female prosody."
     },
     "mr-IN-AarohiNeural": {
         "id": "mr-IN-AarohiNeural",
-        "name": "Aarohi (Marathi)",
+        "name": "Aarohi (Cheerful Marathi Female)",
         "language": "Marathi",
         "locale": "mr_IN",
         "gender": "Female",
         "quality": "Neural HD",
         "flag": "🇮🇳",
-        "engine": "neural",
+        "engine": "neural_azure",
         "is_star": False,
-        "description": "Realistic Marathi female neural voice."
+        "is_default": False,
+        "description": "Sweet, bright, and cheerful Marathi female voice."
     },
     "gu-IN-DhwaniNeural": {
         "id": "gu-IN-DhwaniNeural",
-        "name": "Dhwani (Gujarati)",
+        "name": "Dhwani (Lively Gujarati Female)",
         "language": "Gujarati",
         "locale": "gu_IN",
         "gender": "Female",
         "quality": "Neural HD",
         "flag": "🇮🇳",
-        "engine": "neural",
+        "engine": "neural_azure",
         "is_star": False,
-        "description": "Realistic Gujarati female neural voice."
+        "is_default": False,
+        "description": "Bright and lively Gujarati female neural voice."
     },
     "bn-IN-TanishaaNeural": {
         "id": "bn-IN-TanishaaNeural",
-        "name": "Tanishaa (Bengali)",
+        "name": "Tanishaa (Sweet Bengali Female)",
         "language": "Bengali",
         "locale": "bn_IN",
         "gender": "Female",
         "quality": "Neural HD",
         "flag": "🇮🇳",
-        "engine": "neural",
+        "engine": "neural_azure",
         "is_star": False,
-        "description": "Realistic Bengali female neural voice."
-    },
-    "ta-IN-PallaviNeural": {
-        "id": "ta-IN-PallaviNeural",
-        "name": "Pallavi (Tamil)",
-        "language": "Tamil",
-        "locale": "ta_IN",
-        "gender": "Female",
-        "quality": "Neural HD",
-        "flag": "🇮🇳",
-        "engine": "neural",
-        "is_star": False,
-        "description": "Realistic Tamil female neural voice."
-    },
-    "te-IN-ShrutiNeural": {
-        "id": "te-IN-ShrutiNeural",
-        "name": "Shruti (Telugu)",
-        "language": "Telugu",
-        "locale": "te_IN",
-        "gender": "Female",
-        "quality": "Neural HD",
-        "flag": "🇮🇳",
-        "engine": "neural",
-        "is_star": False,
-        "description": "Realistic Telugu female neural voice."
-    },
-    "ur-IN-GulNeural": {
-        "id": "ur-IN-GulNeural",
-        "name": "Gul (Urdu)",
-        "language": "Urdu (India)",
-        "locale": "ur_IN",
-        "gender": "Female",
-        "quality": "Neural HD",
-        "flag": "🇮🇳",
-        "engine": "neural",
-        "is_star": False,
-        "description": "Realistic Urdu female neural voice."
-    },
-    # --- Offline Piper Models ---
-    "hi_IN-priyamvada-medium": {
-        "id": "hi_IN-priyamvada-medium",
-        "name": "Priyamvada (Offline Piper)",
-        "language": "Hindi (Piper)",
-        "locale": "hi_IN",
-        "gender": "Female",
-        "quality": "Medium (Offline)",
-        "flag": "🇮🇳",
-        "engine": "piper",
-        "is_star": False,
-        "description": "Offline Piper ONNX Hindi female voice model."
-    },
-    "hi_IN-rohan-medium": {
-        "id": "hi_IN-rohan-medium",
-        "name": "Rohan (Offline Piper)",
-        "language": "Hindi (Piper)",
-        "locale": "hi_IN",
-        "gender": "Male",
-        "quality": "Medium (Offline)",
-        "flag": "🇮🇳",
-        "engine": "piper",
-        "is_star": False,
-        "description": "Offline Piper ONNX Hindi male voice model."
-    },
-    "en_GB-jenny_dioco-medium": {
-        "id": "en_GB-jenny_dioco-medium",
-        "name": "Jenny Dioco (Offline Piper)",
-        "language": "English (UK)",
-        "locale": "en_GB",
-        "gender": "Female",
-        "quality": "Medium (Offline)",
-        "flag": "🇬🇧",
-        "engine": "piper",
-        "is_star": False,
-        "description": "Offline British English female Piper voice."
-    },
-    "en_US-amy-low": {
-        "id": "en_US-amy-low",
-        "name": "Amy (Offline Piper Low)",
-        "language": "English (US)",
-        "locale": "en_US",
-        "gender": "Female",
-        "quality": "Low (Offline)",
-        "flag": "🇺🇸",
-        "engine": "piper",
-        "is_star": False,
-        "description": "Lightweight offline US English Piper voice."
+        "is_default": False,
+        "description": "Sweet, expressive, and melodic Bengali female neural voice."
     }
 }
 
 
 def clean_speech_text(text: str) -> str:
     """
-    Cleans text for optimal TTS natural pronunciation:
-    - Removes WhatsApp markdown (*bold*, _italic_, ~strike~, `code`)
-    - Removes bullet points and unpronounceable characters
-    - Normalizes multiple spaces and line breaks
+    Cleans and normalizes text for optimal TTS pronunciation:
+    - Removes markdown formatting (*bold*, _italic_, ~strike~, `code`, #, >)
+    - Removes bullet points and formatting artifacts
+    - Replaces URLs with 'link'
+    - Normalizes whitespace
     """
     if not text:
         return ""
-    # Remove markdown bold/italic/strike
     t = re.sub(r'[*_~`#>]', '', text)
-    # Remove bullet markers
     t = re.sub(r'^\s*[-•*]\s+', '', t, flags=re.MULTILINE)
-    # Replace URLs with "link"
     t = re.sub(r'https?://\S+', 'link', t)
-    # Replace multiple spaces/newlines with a single space
     t = re.sub(r'\s+', ' ', t).strip()
     return t
 
 
 class TTSService:
     """
-    Unified High-Fidelity Speech Synthesis Service.
-    Supports Neural Azure Voices (hi-IN-SwaraNeural, hi-IN-MadhurNeural, etc.)
-    with automatic offline Piper ONNX fallback.
+    Unified High-Fidelity Uplifting Female TTS Service.
+    Loads models once at startup. Zero fallback.
     """
 
     _instance: Optional["TTSService"] = None
 
     def __init__(self):
-        self._default_voice: str = settings.DEFAULT_VOICE
-        self._piper_voices: Dict[str, Any] = {}
-        self._sample_rates: Dict[str, int] = {}
+        self._default_voice: str = "hi-IN-SwaraNeural"
+        self._mms_model_id: str = settings.MMS_MODEL_ID
+        self._mms_model: Optional[Any] = None
+        self._mms_tokenizer: Optional[Any] = None
+        self._sampling_rate: int = 16000
+        self._is_loaded: bool = False
+        self._load_error: Optional[str] = None
         self._lock = asyncio.Lock()
-        self._is_loaded: bool = True
+
+        # Load Meta MMS model into memory once at startup
+        self._load_mms_model()
 
     @classmethod
     def get_instance(cls) -> "TTSService":
@@ -247,7 +160,7 @@ class TTSService:
 
     @property
     def is_loaded(self) -> bool:
-        return self._is_loaded
+        return self._is_loaded or EDGE_TTS_AVAILABLE
 
     @property
     def default_voice(self) -> str:
@@ -255,10 +168,39 @@ class TTSService:
 
     @property
     def sample_rate(self) -> int:
-        return 24000  # Default 24kHz for HD Neural voices
+        return self._sampling_rate
+
+    @property
+    def load_error(self) -> Optional[str]:
+        return self._load_error
+
+    def _load_mms_model(self) -> None:
+        """Loads Meta MMS VITS model once into memory."""
+        if not MMS_AVAILABLE:
+            self._load_error = "PyTorch/Transformers not installed."
+            return
+
+        try:
+            logger.info(f"Loading Meta MMS-TTS Hindi model from '{self._mms_model_id}'...")
+            if hasattr(torch, "set_num_threads"):
+                torch.set_num_threads(2)
+
+            self._mms_tokenizer = AutoTokenizer.from_pretrained(self._mms_model_id)
+            self._mms_model = VitsModel.from_pretrained(self._mms_model_id)
+            self._mms_model.eval()
+
+            if hasattr(self._mms_model.config, "sampling_rate"):
+                self._sampling_rate = int(self._mms_model.config.sampling_rate)
+
+            self._is_loaded = True
+            logger.info(f"Meta MMS Hindi TTS loaded successfully ({self._sampling_rate} Hz).")
+        except Exception as e:
+            self._is_loaded = False
+            self._load_error = str(e)
+            logger.error(f"Failed to load MMS-TTS model: {e}", exc_info=True)
 
     def get_available_voices(self) -> List[Dict[str, Any]]:
-        """Returns metadata for all supported neural and offline voices."""
+        """Returns catalog of available uplifting female voices."""
         voice_list = []
         for voice_id, meta in VOICE_METADATA.items():
             voice_list.append({
@@ -271,61 +213,63 @@ class TTSService:
                 "flag": meta["flag"],
                 "engine": meta["engine"],
                 "is_star": meta.get("is_star", False),
-                "is_default": voice_id == self._default_voice,
+                "is_default": voice_id == self._default_voice or meta.get("is_default", False),
                 "description": meta["description"]
             })
         return voice_list
 
-    def _resolve_voice_engine(self, voice_name: Optional[str]) -> Tuple[str, str]:
-        """
-        Determines the engine ('neural' or 'piper') and canonical voice name.
-        """
-        v = (voice_name or self._default_voice).strip()
-        
-        # Check alias
-        if v.lower() in ("swara", "hindi_female", "female_hindi", "hi_female"):
-            return "hi-IN-SwaraNeural", "neural"
-        if v.lower() in ("madhur", "hindi_male", "male_hindi", "hi_male"):
-            return "hi-IN-MadhurNeural", "neural"
-        if v.lower() in ("neerja", "indian_english", "en_in"):
-            return "en-IN-NeerjaNeural", "neural"
-        if v.lower() in ("prabhat", "indian_male"):
-            return "en-IN-PrabhatNeural", "neural"
+    def _synthesize_mms_sync(self, text: str, speaking_rate: float = 1.2) -> bytes:
+        """Synchronous CPU inference for Meta MMS Hindi VITS model."""
+        if not self._is_loaded or self._mms_model is None or self._mms_tokenizer is None:
+            raise RuntimeError(f"Meta MMS Hindi model not loaded: {self._load_error}")
 
-        # Check if voice is in metadata registry
-        if v in VOICE_METADATA:
-            return v, VOICE_METADATA[v]["engine"]
+        inputs = self._mms_tokenizer(text, return_tensors="pt")
+        with torch.no_grad():
+            output = self._mms_model(**inputs, speaking_rate=speaking_rate).waveform
 
-        # If voice name contains "Neural", treat as Neural voice
-        if "neural" in v.lower():
-            return v, "neural"
+        waveform = output.squeeze().cpu().numpy()
+        del inputs, output
 
-        # Otherwise treat as Piper ONNX model
-        return v, "piper"
+        pcm_int16 = (np.clip(waveform, -1.0, 1.0) * 32767).astype(np.int16)
+        del waveform
 
-    # --- Neural TTS Synthesis (Edge-TTS Azure) ---
-    async def _synthesize_neural(
+        wav_buffer = io.BytesIO()
+        with wave.open(wav_buffer, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(self._sampling_rate)
+            wf.writeframes(pcm_int16.tobytes())
+
+        wav_bytes = wav_buffer.getvalue()
+        del pcm_int16, wav_buffer
+        gc.collect()
+        return wav_bytes
+
+    async def _synthesize_edge_tts(
         self,
         text: str,
-        voice_name: str,
-        rate: str = "+0%",
-        pitch: str = "+0Hz"
+        voice: str,
+        rate: Optional[str] = None,
+        pitch: Optional[str] = None
     ) -> bytes:
-        """
-        Synthesizes speech using Microsoft Azure Neural voices (Ultra-Realistic).
-        """
+        """Synthesizes high-definition uplifting female voice using Microsoft Azure Neural via Edge-TTS."""
         if not EDGE_TTS_AVAILABLE:
-            raise RuntimeError("edge-tts library is required for neural voice synthesis.")
+            raise RuntimeError("edge-tts is not available.")
 
-        clean_text = clean_speech_text(text)
-        if not clean_text:
-            raise ValueError("Input text is empty after cleaning.")
+        rate_str = rate or "+0%"
+        pitch_str = pitch or "+0Hz"
+
+        target_voice = voice
+        # If an English voice (en-IN) receives Devanagari Hindi characters, route to Swara Hindi female
+        has_devanagari = any('\u0900' <= ch <= '\u097f' for ch in text)
+        if 'en-IN' in target_voice and has_devanagari:
+            target_voice = 'hi-IN-SwaraNeural'
 
         communicate = edge_tts.Communicate(
-            text=clean_text,
-            voice=voice_name,
-            rate=rate,
-            pitch=pitch
+            text=text,
+            voice=target_voice,
+            rate=rate_str,
+            pitch=pitch_str
         )
 
         audio_buffer = io.BytesIO()
@@ -334,55 +278,10 @@ class TTSService:
                 audio_buffer.write(chunk["data"])
 
         audio_bytes = audio_buffer.getvalue()
-        if len(audio_bytes) < 100:
-            raise RuntimeError("Neural TTS generated an empty or incomplete audio stream.")
-
+        if not audio_bytes:
+            raise RuntimeError("Edge-TTS generated 0 bytes.")
         return audio_bytes
 
-    # --- Piper ONNX Synthesis (Offline Fallback) ---
-    def _load_piper_model(self, model_name: str) -> Any:
-        """Loads a Piper ONNX model into memory."""
-        target = model_name.replace(".onnx", "").replace(".json", "")
-        if target in self._piper_voices:
-            return self._piper_voices[target]
-
-        if not PIPER_AVAILABLE:
-            raise RuntimeError("piper-tts is not available for offline ONNX models.")
-
-        onnx_file = settings.MODEL_DIR / f"{target}.onnx"
-        config_file = settings.MODEL_DIR / f"{target}.onnx.json"
-
-        if not onnx_file.exists():
-            # Try auto-download
-            from download_model import ensure_model_files
-            ensure_model_files(target, settings.MODEL_DIR)
-
-        voice = PiperVoice.load(str(onnx_file), config_path=str(config_file) if config_file.exists() else None)
-        self._piper_voices[target] = voice
-        return voice
-
-    def _sync_piper_synthesize(self, text: str, voice_name: str) -> bytes:
-        """Piper ONNX offline worker."""
-        clean_text = clean_speech_text(text)
-        voice = self._load_piper_model(voice_name)
-
-        buffer = io.BytesIO()
-        with wave.open(buffer, "wb") as wav_file:
-            if hasattr(voice, "synthesize_wav"):
-                voice.synthesize_wav(clean_text, wav_file)
-            else:
-                first = True
-                for chunk in voice.synthesize(clean_text):
-                    if first:
-                        wav_file.setframerate(chunk.sample_rate)
-                        wav_file.setsampwidth(chunk.sample_width)
-                        wav_file.setnchannels(chunk.sample_channels)
-                        first = False
-                    wav_file.writeframes(chunk.audio_int16_bytes)
-
-        return buffer.getvalue()
-
-    # --- Public Synthesis API ---
     async def synthesize(
         self,
         text: str,
@@ -392,48 +291,34 @@ class TTSService:
         output_format: Optional[str] = None
     ) -> Tuple[bytes, str]:
         """
-        Synthesizes text into high quality audio.
-        Returns (audio_bytes, mime_type).
+        Direct neural speech synthesis (Zero Fallback).
         """
         clean_text = clean_speech_text(text)
         if not clean_text:
             raise ValueError("Input text cannot be empty.")
 
-        resolved_voice, engine = self._resolve_voice_engine(voice)
-        rate_val = rate or settings.DEFAULT_RATE
-        pitch_val = pitch or settings.DEFAULT_PITCH
-        format_val = (output_format or settings.DEFAULT_FORMAT).lower()
+        target_voice = voice or self._default_voice
 
-        logger.info(f"Synthesizing [{len(clean_text)} chars] with voice '{resolved_voice}' (engine: {engine})")
+        # Check if target is Meta MMS model
+        if target_voice in ("facebook/mms-tts-hin", "mms-hin", "mms-uplifting-female", "mms-genz-female"):
+            speed = 1.25  # Upbeat, lively Gen-Z pace
+            if rate:
+                m = re.search(r'([+-]?\d+)', str(rate))
+                if m:
+                    speed *= (1.0 + float(m.group(1)) / 100.0)
 
-        if engine == "neural":
-            try:
-                audio_bytes = await self._synthesize_neural(
-                    clean_text,
-                    voice_name=resolved_voice,
-                    rate=rate_val,
-                    pitch=pitch_val
-                )
-                # Neural returns MP3 audio stream
-                return audio_bytes, "audio/mpeg"
-            except Exception as e:
-                logger.warning(f"Neural TTS failed for '{resolved_voice}': {e}. Trying offline Piper fallback...")
-                if PIPER_AVAILABLE:
-                    try:
-                        wav_bytes = await asyncio.to_thread(self._sync_piper_synthesize, clean_text, settings.PIPER_MODEL)
-                        return wav_bytes, "audio/wav"
-                    except Exception as pe:
-                        logger.error(f"Piper fallback also failed: {pe}")
-                raise e
-        else:
-            # Piper ONNX model
-            wav_bytes = await asyncio.to_thread(self._sync_piper_synthesize, clean_text, resolved_voice)
+            async with self._lock:
+                wav_bytes = await asyncio.to_thread(self._synthesize_mms_sync, clean_text, speed)
             return wav_bytes, "audio/wav"
 
-    async def synthesize_wav(self, text: str, voice_name: Optional[str] = None) -> bytes:
-        """Legacy helper returning audio stream."""
-        audio_bytes, _ = await self.synthesize(text, voice=voice_name, output_format="wav")
-        return audio_bytes
+        # Direct synthesis using Studio-Grade Neural Female Voice
+        audio_bytes = await self._synthesize_edge_tts(
+            text=clean_text,
+            voice=target_voice,
+            rate=rate,
+            pitch=pitch
+        )
+        return audio_bytes, "audio/mpeg"
 
     async def synthesize_base64(
         self,
@@ -443,7 +328,6 @@ class TTSService:
         pitch: Optional[str] = None,
         output_format: Optional[str] = None
     ) -> Tuple[str, str]:
-        """Returns (base64_string, format_type)."""
         audio_bytes, mime_type = await self.synthesize(
             text,
             voice=voice,
@@ -456,10 +340,5 @@ class TTSService:
         return b64_str, fmt
 
 
-# Singleton Accessor
-def get_piper_service() -> TTSService:
-    return TTSService.get_instance()
-
 def get_tts_service() -> TTSService:
     return TTSService.get_instance()
-

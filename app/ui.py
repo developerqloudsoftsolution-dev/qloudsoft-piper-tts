@@ -6,6 +6,8 @@ Provides a modern, responsive UI at root ('/') to test speech synthesis in real-
 def get_dashboard_html(model_name: str, sample_rate: int, max_length: int, auth_enabled: bool) -> str:
     auth_badge_text = "Bearer Auth Required" if auth_enabled else "Open Access (Dev Mode)"
     auth_badge_class = "badge-warning" if auth_enabled else "badge-success"
+    auth_status_text = "Required (Bearer Token)" if auth_enabled else "Open Access (Disabled)"
+    auth_status_color = "#F59E0B" if auth_enabled else "#34D399"
     
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -33,6 +35,7 @@ def get_dashboard_html(model_name: str, sample_rate: int, max_length: int, auth_
             --accent-emerald: #10B981;
             --accent-cyan: #06B6D4;
             --accent-amber: #F59E0B;
+            --accent-rose: #F43F5E;
             --radius-lg: 16px;
             --radius-md: 10px;
             --radius-sm: 6px;
@@ -61,7 +64,7 @@ def get_dashboard_html(model_name: str, sample_rate: int, max_length: int, auth_
         }}
 
         .container {{
-            max-width: 1100px;
+            max-width: 1150px;
             margin: 0 auto;
             padding: 2.5rem 1.5rem 4rem;
             width: 100%;
@@ -71,7 +74,7 @@ def get_dashboard_html(model_name: str, sample_rate: int, max_length: int, auth_
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 2.5rem;
+            margin-bottom: 2rem;
             flex-wrap: wrap;
             gap: 1rem;
         }}
@@ -117,13 +120,14 @@ def get_dashboard_html(model_name: str, sample_rate: int, max_length: int, auth_
             display: flex;
             align-items: center;
             gap: 0.75rem;
+            flex-wrap: wrap;
         }}
 
         .badge {{
             display: inline-flex;
             align-items: center;
             gap: 0.4rem;
-            padding: 0.35rem 0.75rem;
+            padding: 0.4rem 0.85rem;
             border-radius: 9999px;
             font-size: 0.75rem;
             font-weight: 600;
@@ -135,6 +139,18 @@ def get_dashboard_html(model_name: str, sample_rate: int, max_length: int, auth_
             background: rgba(16, 185, 129, 0.15);
             color: #34D399;
             border: 1px solid rgba(16, 185, 129, 0.3);
+        }}
+
+        .badge-warning {{
+            background: rgba(245, 158, 11, 0.15);
+            color: #FBBF24;
+            border: 1px solid rgba(245, 158, 11, 0.35);
+        }}
+
+        .badge-danger {{
+            background: rgba(244, 63, 94, 0.15);
+            color: #FB7185;
+            border: 1px solid rgba(244, 63, 94, 0.35);
         }}
 
         .badge-star {{
@@ -151,13 +167,86 @@ def get_dashboard_html(model_name: str, sample_rate: int, max_length: int, auth_
             box-shadow: 0 0 6px currentColor;
         }}
 
+        .api-banner {{
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 0.9rem 1.25rem;
+            margin-bottom: 1.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+            backdrop-filter: blur(12px);
+        }}
+
+        .api-banner-left {{
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }}
+
+        .api-banner-text {{
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }}
+
+        .api-banner-text strong {{
+            color: var(--text-main);
+        }}
+
+        .api-key-input-wrap {{
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex: 1;
+            max-width: 420px;
+        }}
+
+        .api-key-field {{
+            flex: 1;
+            background: rgba(9, 13, 22, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: var(--radius-sm);
+            padding: 0.45rem 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: #E2E8F0;
+            outline: none;
+            transition: all 0.2s;
+        }}
+
+        .api-key-field:focus {{
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.2);
+        }}
+
+        .btn-sm {{
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: var(--radius-sm);
+            padding: 0.45rem 0.75rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }}
+
+        .btn-sm:hover {{
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.25);
+        }}
+
         .grid-layout {{
             display: grid;
-            grid-template-columns: 1.2fr 0.8fr;
+            grid-template-columns: 1.25fr 0.75fr;
             gap: 1.75rem;
         }}
 
-        @media (max-width: 900px) {{
+        @media (max-width: 950px) {{
             .grid-layout {{
                 grid-template-columns: 1fr;
             }}
@@ -365,6 +454,32 @@ def get_dashboard_html(model_name: str, sample_rate: int, max_length: int, auth_
             animation: fadeIn 0.3s ease;
         }}
 
+        .alert-card {{
+            margin-top: 1.25rem;
+            background: rgba(244, 63, 94, 0.12);
+            border: 1px solid rgba(244, 63, 94, 0.35);
+            border-radius: var(--radius-md);
+            padding: 1rem 1.25rem;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }}
+
+        .alert-card-title {{
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #FB7185;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.35rem;
+        }}
+
+        .alert-card-msg {{
+            font-size: 0.82rem;
+            color: #F8FAFC;
+            line-height: 1.5;
+        }}
+
         @keyframes fadeIn {{
             from {{ opacity: 0; transform: translateY(10px); }}
             to {{ opacity: 1; transform: translateY(0); }}
@@ -425,6 +540,7 @@ def get_dashboard_html(model_name: str, sample_rate: int, max_length: int, auth_
             overflow-x: auto;
             line-height: 1.5;
             margin-top: 1rem;
+            white-space: pre;
         }}
 
         .tab-nav {{
@@ -457,7 +573,7 @@ def get_dashboard_html(model_name: str, sample_rate: int, max_length: int, auth_
 <body>
     <div class="container">
         <!-- Header -->
-        <div class="header">
+        <header class="header">
             <div class="brand">
                 <div class="brand-icon">
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -465,81 +581,116 @@ def get_dashboard_html(model_name: str, sample_rate: int, max_length: int, auth_
                     </svg>
                 </div>
                 <div class="brand-text">
-                    <h1>Realistic Hindi Neural Voice Studio</h1>
-                    <p>Powered by Studio-Grade Azure Neural Models (Swara & Madhur) • Ultra-Human Prosody</p>
+                    <h1>Realistic Hindi Neural TTS Studio</h1>
+                    <p>Gen-Z Indian Female Voices & Meta MMS Hindi VITS • Fast & Ultra-Low Memory</p>
                 </div>
             </div>
+
             <div class="nav-actions">
-                <span class="badge badge-star">
+                <span class="badge {auth_badge_class}" id="authStatusBadge">
                     <span class="badge-dot"></span>
-                    🇮🇳 Swara Neural Active
-                </span>
-                <span class="badge {auth_badge_class}">
                     {auth_badge_text}
                 </span>
+                <span class="badge badge-success">
+                    <span class="badge-dot"></span>
+                    Ready ({sample_rate}Hz)
+                </span>
+            </div>
+        </header>
+
+        <!-- API Key Configuration Banner -->
+        <div class="api-banner">
+            <div class="api-banner-left">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#FBBF24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                <div class="api-banner-text">
+                    <strong>Bearer Authentication:</strong>
+                    <span id="authNoticeText">{'Configure your API Key below to authenticate requests' if auth_enabled else 'Server is running in Open Access mode (no key required)'}</span>
+                </div>
+            </div>
+
+            <div class="api-key-input-wrap">
+                <input type="password" id="apiKeyInput" class="api-key-field" placeholder="Enter API Key / Bearer Token..." oninput="onApiKeyChange(this.value)">
+                <button type="button" class="btn-sm" onclick="toggleApiKeyVisibility()" id="toggleKeyBtn">Show</button>
+                <button type="button" class="btn-sm" onclick="clearApiKey()" style="color: #FB7185;">Clear</button>
             </div>
         </div>
 
-        <!-- Main Workspace -->
         <div class="grid-layout">
-            <!-- Left Column: Synthesizer Studio -->
+            <!-- Left Column: TTS Studio Playground -->
             <div class="card">
                 <div class="card-header">
                     <div class="card-title">
                         <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#EC4899">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                         </svg>
-                        Voice Synthesizer
+                        Voice Synthesis Playground
                     </div>
                 </div>
 
-                <!-- Voice Selection -->
+                <!-- Voice Selection Grid -->
                 <div class="form-group">
-                    <label class="form-label">Select Voice Character</label>
-                    <div class="voice-select-box" id="voiceSelector">
-                        <!-- Swara (Default Star) -->
+                    <label class="form-label">Select Voice Persona</label>
+                    <div class="voice-select-box">
+                        <!-- Swara Gen-Z Female -->
                         <div class="voice-card active" onclick="selectVoice('hi-IN-SwaraNeural', this)">
                             <div class="voice-card-top">
-                                <span class="voice-card-name">🇮🇳 Swara (Female)</span>
+                                <span class="voice-card-name">🇮🇳 Swara (Uplifting Gen-Z Hindi HD)</span>
                                 <span class="badge badge-star" style="padding: 0.15rem 0.4rem; font-size: 0.65rem;">Star</span>
                             </div>
-                            <div class="voice-card-sub">Ultra-Realistic Hindi / Hinglish</div>
+                            <div class="voice-card-sub">Youthful, Warm & Expressive Hindi / Hinglish</div>
                         </div>
-                        <!-- Madhur -->
-                        <div class="voice-card" onclick="selectVoice('hi-IN-MadhurNeural', this)">
-                            <div class="voice-card-top">
-                                <span class="voice-card-name">🇮🇳 Madhur (Male)</span>
-                                <span class="badge badge-success" style="padding: 0.15rem 0.4rem; font-size: 0.65rem;">HD</span>
-                            </div>
-                            <div class="voice-card-sub">Clear Confident Hindi Male</div>
-                        </div>
-                        <!-- Neerja -->
+                        <!-- Neerja Cheerful -->
                         <div class="voice-card" onclick="selectVoice('en-IN-NeerjaNeural', this)">
                             <div class="voice-card-top">
-                                <span class="voice-card-name">🇮🇳 Neerja (English)</span>
+                                <span class="voice-card-name">🇮🇳 Neerja (Cheerful Hinglish/Eng)</span>
+                                <span class="badge badge-success" style="padding: 0.15rem 0.4rem; font-size: 0.65rem;">Upbeat</span>
                             </div>
-                            <div class="voice-card-sub">Fluent Indian Accent Female</div>
+                            <div class="voice-card-sub">Vibrant, Bright & Modern Conversational Cadence</div>
                         </div>
-                        <!-- Prabhat -->
-                        <div class="voice-card" onclick="selectVoice('en-IN-PrabhatNeural', this)">
+                        <!-- Meta MMS Uplifting Female -->
+                        <div class="voice-card" onclick="selectVoice('mms-uplifting-female', this)">
                             <div class="voice-card-top">
-                                <span class="voice-card-name">🇮🇳 Prabhat (English)</span>
+                                <span class="voice-card-name">🇮🇳 Meta MMS Uplifting Hindi</span>
+                                <span class="badge badge-star" style="padding: 0.15rem 0.4rem; font-size: 0.65rem;">VITS 1.2x</span>
                             </div>
-                            <div class="voice-card-sub">Professional Indian Male</div>
+                            <div class="voice-card-sub">Meta MMS Hindi (Fast, Lively & Energetic Tempo)</div>
+                        </div>
+                        <!-- Aarohi Marathi -->
+                        <div class="voice-card" onclick="selectVoice('mr-IN-AarohiNeural', this)">
+                            <div class="voice-card-top">
+                                <span class="voice-card-name">🇮🇳 Aarohi (Cheerful Marathi)</span>
+                            </div>
+                            <div class="voice-card-sub">Sweet & Bright Marathi Female Voice</div>
+                        </div>
+                        <!-- Dhwani Gujarati -->
+                        <div class="voice-card" onclick="selectVoice('gu-IN-DhwaniNeural', this)">
+                            <div class="voice-card-top">
+                                <span class="voice-card-name">🇮🇳 Dhwani (Lively Gujarati)</span>
+                            </div>
+                            <div class="voice-card-sub">Lively, Uplifting Gujarati Female Voice</div>
+                        </div>
+                        <!-- Tanishaa Bengali -->
+                        <div class="voice-card" onclick="selectVoice('bn-IN-TanishaaNeural', this)">
+                            <div class="voice-card-top">
+                                <span class="voice-card-name">🇮🇳 Tanishaa (Sweet Bengali)</span>
+                            </div>
+                            <div class="voice-card-sub">Sweet, Expressive Bengali Female Voice</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Text Input -->
                 <div class="form-group">
-                    <label class="form-label">Speech Text (Hindi / Hinglish / English)</label>
-                    <textarea id="ttsTextInput" class="form-control" placeholder="Type or paste Hindi / Hinglish text here...">नमस्ते! Qloudflow व्हाट्सएप ऑटोमेशन में आपका स्वागत है। आपका ऑर्डर सफलतापूर्वक कन्फर्म हो गया है।</textarea>
+                    <label class="form-label">Speech Text (Hindi / Hinglish)</label>
+                    <textarea id="ttsTextInput" class="form-control" placeholder="Type or paste Hindi / Hinglish text here...">नमस्ते! मैं अनन्या बोल रही हूँ Qloudsoft Solutions से। आज मैं आपकी क्या मदद कर सकती हूँ?</textarea>
                     
                     <div class="sample-pills">
-                        <span class="sample-pill" onclick="setSample(1)">🇮🇳 Pure Hindi Welcome</span>
-                        <span class="sample-pill" onclick="setSample(2)">🇮🇳 Hinglish Order Confirm</span>
-                        <span class="sample-pill" onclick="setSample(3)">🇮🇳 WhatsApp Support Prompt</span>
-                        <span class="sample-pill" onclick="setSample(4)">🇮🇳 Indian English Corporate</span>
+                        <span class="sample-pill" onclick="setSample(1)">🇮🇳 Gen-Z Conversational Welcome</span>
+                        <span class="sample-pill" onclick="setSample(2)">🇮🇳 WhatsApp Order Confirmation</span>
+                        <span class="sample-pill" onclick="setSample(3)">🇮🇳 Customer Support Query</span>
+                        <span class="sample-pill" onclick="setSample(4)">🇮🇳 Pure Hindi Greeting</span>
                     </div>
                 </div>
 
@@ -567,13 +718,24 @@ def get_dashboard_html(model_name: str, sample_rate: int, max_length: int, auth_
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Synthesize Realistic Speech
+                    Synthesize Gen-Z Voice
                 </button>
+
+                <!-- Error Alert Box -->
+                <div id="errorAlert" class="alert-card">
+                    <div class="alert-card-title">
+                        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span id="errorAlertTitle">TTS Synthesis Error</span>
+                    </div>
+                    <div class="alert-card-msg" id="errorAlertMsg"></div>
+                </div>
 
                 <!-- Audio Output Card -->
                 <div id="audioCard" class="audio-player-card">
                     <div class="player-header">
-                        <div class="player-info" id="playerInfo">Ready • Swara Neural (24kHz HD)</div>
+                        <div class="player-info" id="playerInfo">Ready • Swara (Gen-Z Female HD)</div>
                         <span class="badge badge-success" id="latencyBadge">⚡ 120ms</span>
                     </div>
                     <audio id="audioElement" controls autoplay></audio>
@@ -593,20 +755,20 @@ def get_dashboard_html(model_name: str, sample_rate: int, max_length: int, auth_
 
                 <div class="meta-list">
                     <div class="meta-item">
-                        <span class="meta-label">Primary Voice Engine</span>
-                        <span class="meta-val" style="color: #F472B6;">Microsoft Azure Neural (Swara)</span>
+                        <span class="meta-label">Primary Voice Persona</span>
+                        <span class="meta-val" style="color: #F472B6;">Gen-Z Indian Female (Swara HD)</span>
                     </div>
                     <div class="meta-item">
-                        <span class="meta-label">Default Audio Format</span>
-                        <span class="meta-val">MP3 (High Fidelity)</span>
+                        <span class="meta-label">Synthesis Mode</span>
+                        <span class="meta-val" style="color: #34D399;">Direct Neural (Zero Fallback)</span>
                     </div>
                     <div class="meta-item">
-                        <span class="meta-label">Offline Fallback Engine</span>
-                        <span class="meta-val">Piper ONNX (Local)</span>
+                        <span class="meta-label">Meta MMS Model</span>
+                        <span class="meta-val">facebook/mms-tts-hin (VITS)</span>
                     </div>
                     <div class="meta-item">
-                        <span class="meta-label">API Key Required</span>
-                        <span class="meta-val" style="color: #34D399;">No (100% Free & Open)</span>
+                        <span class="meta-label">API Key Auth</span>
+                        <span class="meta-val" style="color: {auth_status_color};">{auth_status_text}</span>
                     </div>
                 </div>
 
@@ -617,52 +779,86 @@ def get_dashboard_html(model_name: str, sample_rate: int, max_length: int, auth_
                         <button class="tab-btn" onclick="switchTab('js', this)">JavaScript</button>
                     </div>
 
-                    <div id="codeTabCurl" class="code-box">
-curl -X POST http://localhost:8000/tts \
-  -H "Content-Type: application/json" \
-  -d '{{"text": "नमस्ते! आपका स्वागत है।", "voice": "hi-IN-SwaraNeural"}}' \
-  --output speech.mp3
-                    </div>
-
-                    <div id="codeTabPhp" class="code-box" style="display: none;">
-$response = Http::post('http://localhost:8000/tts', [
-    'text'  => 'Namaste! Aapka order confirm ho gaya hai.',
-    'voice' => 'hi-IN-SwaraNeural'
-]);
-
-if ($response->successful()) {{
-    $audioMp3 = $response->body();
-}}
-                    </div>
-
-                    <div id="codeTabJs" class="code-box" style="display: none;">
-const res = await fetch('http://localhost:8000/tts', {{
-  method: 'POST',
-  headers: {{ 'Content-Type': 'application/json' }},
-  body: JSON.stringify({{
-    text: 'Namaste! How can I help you today?',
-    voice: 'hi-IN-SwaraNeural'
-  }})
-}});
-const audioBlob = await res.blob();
-const audioUrl = URL.createObjectURL(audioBlob);
-                    </div>
+                    <div id="codeTabCurl" class="code-box"></div>
+                    <div id="codeTabPhp" class="code-box" style="display: none;"></div>
+                    <div id="codeTabJs" class="code-box" style="display: none;"></div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+        const SERVER_AUTH_ENABLED = {str(auth_enabled).lower()};
         let currentVoice = 'hi-IN-SwaraNeural';
         let currentRate = '+0%';
         let currentPitch = '+0Hz';
+        let currentApiKey = localStorage.getItem('mms_tts_api_key') || '';
 
         const SAMPLES = {{
-            1: "नमस्ते! Qloudflow व्हाट्सएप ऑटोमेशन में आपका स्वागत है। हम आपकी क्या सहायता कर सकते हैं?",
-            2: "Namaste! Aapka order successfully confirm ho gaya hai. Tracking link WhatsApp par send kar di gayi hai.",
-            3: "Hello! Hamari support team aapki ticket process kar rahi hai. Kripya thoda intezaar karein.",
-            4: "Welcome to Qloudflow Solutions. Your daily report has been successfully generated and dispatched."
+            1: "नमस्ते! मैं अनन्या बोल रही हूँ Qloudsoft Solutions से। आज मैं आपकी वेबसाइट या बिज़नेस ग्रोथ में क्या मदद कर सकती हूँ?",
+            2: "Namaste! Aapka order successfully confirm ho gaya hai. Tracking link WhatsApp par send kar di gayi hai!",
+            3: "Hello! Hamari support team aapki query check kar rahi hai. Kripya thoda intezaar karein.",
+            4: "नमस्ते, आप कैसे हैं? आशा है आपका दिन बहुत अच्छा जा रहा है।"
         }};
+
+        // Initialize UI
+        window.addEventListener('DOMContentLoaded', () => {{
+            const keyInput = document.getElementById('apiKeyInput');
+            if (keyInput && currentApiKey) {{
+                keyInput.value = currentApiKey;
+            }}
+            updateAuthBadge();
+            renderCodeSnippets();
+        }});
+
+        function onApiKeyChange(val) {{
+            currentApiKey = val.trim();
+            localStorage.setItem('mms_tts_api_key', currentApiKey);
+            updateAuthBadge();
+            renderCodeSnippets();
+            hideError();
+        }}
+
+        function toggleApiKeyVisibility() {{
+            const input = document.getElementById('apiKeyInput');
+            const btn = document.getElementById('toggleKeyBtn');
+            if (input.type === 'password') {{
+                input.type = 'text';
+                btn.innerText = 'Hide';
+            }} else {{
+                input.type = 'password';
+                btn.innerText = 'Show';
+            }}
+        }}
+
+        function clearApiKey() {{
+            currentApiKey = '';
+            localStorage.removeItem('mms_tts_api_key');
+            document.getElementById('apiKeyInput').value = '';
+            updateAuthBadge();
+            renderCodeSnippets();
+        }}
+
+        function updateAuthBadge() {{
+            const badge = document.getElementById('authStatusBadge');
+            const notice = document.getElementById('authNoticeText');
+            
+            if (SERVER_AUTH_ENABLED) {{
+                if (currentApiKey) {{
+                    badge.className = 'badge badge-success';
+                    badge.innerHTML = '<span class="badge-dot"></span> Bearer Auth (Key Set)';
+                    if (notice) notice.innerText = 'API Key configured in browser storage and attached to requests.';
+                }} else {{
+                    badge.className = 'badge badge-warning';
+                    badge.innerHTML = '<span class="badge-dot"></span> Bearer Auth Required';
+                    if (notice) notice.innerText = 'Server requires an API Key. Please paste your Bearer token in the field.';
+                }}
+            }} else {{
+                badge.className = 'badge badge-success';
+                badge.innerHTML = '<span class="badge-dot"></span> Open Access (Free)';
+                if (notice) notice.innerText = 'Server is running in Open Access mode (no key required).';
+            }}
+        }}
 
         function selectVoice(voiceId, elem) {{
             currentVoice = voiceId;
@@ -686,10 +882,22 @@ const audioUrl = URL.createObjectURL(audioBlob);
             document.getElementById('pitchVal').innerText = currentPitch;
         }}
 
+        function showError(title, msg) {{
+            const alertBox = document.getElementById('errorAlert');
+            document.getElementById('errorAlertTitle').innerText = title;
+            document.getElementById('errorAlertMsg').innerHTML = msg;
+            alertBox.style.display = 'block';
+        }}
+
+        function hideError() {{
+            document.getElementById('errorAlert').style.display = 'none';
+        }}
+
         async function generateSpeech() {{
+            hideError();
             const text = document.getElementById('ttsTextInput').value.trim();
             if (!text) {{
-                alert('Please enter text to synthesize.');
+                showError('Input Required', 'Please enter Hindi or Hinglish text to synthesize.');
                 return;
             }}
 
@@ -704,22 +912,41 @@ const audioUrl = URL.createObjectURL(audioBlob);
 
             const startTime = performance.now();
 
+            const headers = {{
+                'Content-Type': 'application/json'
+            }};
+
+            if (currentApiKey) {{
+                headers['Authorization'] = 'Bearer ' + currentApiKey;
+            }}
+
             try {{
                 const res = await fetch('/tts', {{
                     method: 'POST',
-                    headers: {{ 'Content-Type': 'application/json' }},
+                    headers: headers,
                     body: JSON.stringify({{
                         text: text,
                         voice: currentVoice,
                         rate: currentRate,
                         pitch: currentPitch,
-                        format: 'mp3'
+                        format: 'wav'
                     }})
                 }});
 
                 if (!res.ok) {{
-                    const err = await res.json();
-                    throw new Error(err.detail || 'Synthesis failed');
+                    let errMsg = 'Synthesis failed with HTTP ' + res.status;
+                    try {{
+                        const errData = await res.json();
+                        errMsg = errData.detail || errMsg;
+                    }} catch (_) {{}}
+
+                    if (res.status === 401) {{
+                        showError('Authentication Required (401)', 
+                            errMsg + '<br><br>👉 <strong>Fix:</strong> Enter your secret API Key into the <em>Bearer Authentication</em> field above. (If you wish to make the API open access, remove the <code>API_KEY</code> variable from your Render dashboard settings).'
+                        );
+                        return;
+                    }}
+                    throw new Error(errMsg);
                 }}
 
                 const blob = await res.blob();
@@ -730,9 +957,9 @@ const audioUrl = URL.createObjectURL(audioBlob);
                 audioCard.style.display = 'block';
                 latencyBadge.innerText = '⚡ ' + latency + 'ms';
                 playerInfo.innerText = currentVoice + ' (' + (blob.size / 1024).toFixed(1) + ' KB)';
-                audioElem.play();
+                audioElem.play().catch(() => {{}});
             }} catch (e) {{
-                alert('TTS Error: ' + e.message);
+                showError('Synthesis Error', e.message);
             }} finally {{
                 btn.disabled = false;
                 btn.innerHTML = `
@@ -740,9 +967,51 @@ const audioUrl = URL.createObjectURL(audioBlob);
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Synthesize Realistic Speech
+                    Synthesize Gen-Z Voice
                 `;
             }}
+        }}
+
+        function renderCodeSnippets() {{
+            const keyHeader = currentApiKey ? `  -H "Authorization: Bearer ${{currentApiKey}}" \\\n` : (SERVER_AUTH_ENABLED ? `  -H "Authorization: Bearer YOUR_API_KEY" \\\n` : '');
+            const phpAuthHeader = currentApiKey ? `        'Authorization' => 'Bearer ${{currentApiKey}}',\n` : (SERVER_AUTH_ENABLED ? `        'Authorization' => 'Bearer YOUR_API_KEY',\n` : '');
+            const jsAuthHeader = currentApiKey ? `    'Authorization': 'Bearer ${{currentApiKey}}',\n` : (SERVER_AUTH_ENABLED ? `    'Authorization': 'Bearer YOUR_API_KEY',\n` : '');
+
+            document.getElementById('codeTabCurl').innerText = 
+`curl -X POST https://YOUR_APP.onrender.com/tts \\
+${{keyHeader}}  -H "Content-Type: application/json" \\
+  -d '{{"text": "नमस्ते! आपका स्वागत है।", "voice": "hi-IN-SwaraNeural"}}' \\
+  --output speech.wav`;
+
+            document.getElementById('codeTabPhp').innerText = 
+`use Illuminate\\Support\\Facades\\Http;
+
+$response = Http::withHeaders([
+${{phpAuthHeader}}    'Content-Type' => 'application/json',
+])->post('https://YOUR_APP.onrender.com/tts', [
+    'text'  => 'Namaste! Main Ananya bol rahi hoon.',
+    'voice' => 'hi-IN-SwaraNeural',
+    'format'=> 'wav'
+]);
+
+if ($response->successful()) {{
+    $audioBytes = $response->body();
+}}`;
+
+            document.getElementById('codeTabJs').innerText = 
+`const res = await fetch('https://YOUR_APP.onrender.com/tts', {{
+  method: 'POST',
+  headers: {{
+${{jsAuthHeader}}    'Content-Type': 'application/json'
+  }},
+  body: JSON.stringify({{
+    text: 'Namaste! Main Ananya bol rahi hoon.',
+    voice: 'hi-IN-SwaraNeural',
+    format: 'wav'
+  }})
+}});
+const audioBlob = await res.blob();
+const audioUrl = URL.createObjectURL(audioBlob);`;
         }}
 
         function switchTab(tab, elem) {{

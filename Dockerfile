@@ -1,5 +1,5 @@
 # ==============================================================================
-# Ultra-Lightweight Piper TTS REST API for Render Free Tier (512MB RAM Limit)
+# Ultra-Lightweight Meta MMS-TTS Hindi REST API for Render Free Tier (512MB RAM Limit)
 # ==============================================================================
 FROM python:3.11-slim
 
@@ -7,31 +7,29 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=8000 \
-    DEFAULT_VOICE=hi-IN-SwaraNeural \
-    PIPER_MODEL=hi_IN-priyamvada-medium \
+    DEFAULT_VOICE=facebook/mms-tts-hin \
+    MMS_MODEL_ID=facebook/mms-tts-hin \
     MAX_TEXT_LENGTH=1000 \
-    MODEL_DIR=/app/models
+    OMP_NUM_THREADS=2 \
+    MKL_NUM_THREADS=2
 
 WORKDIR /app
 
-# Install minimal OS dependencies for TTS (espeak-ng, ffmpeg)
+# Install minimal OS dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    espeak-ng \
     ca-certificates \
     curl \
-    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Install CPU-only PyTorch first to keep Docker image small and avoid CUDA overhead
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+# Install application dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create models directory
-RUN mkdir -p /app/models
-
-# Copy model downloader and pre-download the fallback voice model
-COPY download_model.py .
-RUN python download_model.py hi_IN-priyamvada-medium --dir /app/models
+# Pre-download Meta MMS Hindi model weights during docker build for instant zero-delay container startup
+RUN python -c "from transformers import VitsModel, AutoTokenizer; AutoTokenizer.from_pretrained('facebook/mms-tts-hin'); VitsModel.from_pretrained('facebook/mms-tts-hin')"
 
 # Copy application source code
 COPY app/ /app/app/

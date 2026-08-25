@@ -1,9 +1,9 @@
 # ==============================================================================
-# Render Blueprint Specification for Piper TTS Microservice
+# Render Blueprint Specification for Meta MMS-TTS Hindi Microservice
 # ==============================================================================
 services:
   - type: web
-    name: piper-tts-api
+    name: mms-hindi-tts-api
     runtime: docker
     plan: free
     region: oregon
@@ -13,9 +13,9 @@ services:
     autoDeploy: true
     envVars:
       - key: DEFAULT_VOICE
-        value: hi-IN-SwaraNeural
-      - key: PIPER_MODEL
-        value: hi_IN-priyamvada-medium
+        value: facebook/mms-tts-hin
+      - key: MMS_MODEL_ID
+        value: facebook/mms-tts-hin
       - key: MAX_TEXT_LENGTH
         value: "1000"
       - key: LOG_LEVEL

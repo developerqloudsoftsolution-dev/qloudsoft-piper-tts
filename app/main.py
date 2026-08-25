@@ -19,7 +19,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] [%(name)s] %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
-logger = logging.getLogger("tts_api")
+logger = logging.getLogger("mms_tts_api")
 
 security = HTTPBearer(auto_error=False)
 
@@ -29,66 +29,93 @@ security = HTTPBearer(auto_error=False)
 class TTSRequest(BaseModel):
     text: str = Field(
         ...,
-        description="The text to synthesize into speech (supports Hindi, Hinglish, English).",
-        examples=["नमस्ते! आपका स्वागत है। How can I help you today?"]
+        description="The text to synthesize into speech (Devanagari Hindi or cleaned input text).",
+        examples=["नमस्ते, आप कैसे हैं?"]
     )
     voice: Optional[str] = Field(
         default=None,
-        description="Voice ID to use (e.g. 'hi-IN-SwaraNeural' for ultra-realistic Hindi female, 'hi-IN-MadhurNeural' for Hindi male).",
-        examples=["hi-IN-SwaraNeural"]
+        description="Voice Model ID (default: 'facebook/mms-tts-hin').",
+        examples=["facebook/mms-tts-hin"]
     )
     rate: Optional[str] = Field(
         default="+0%",
-        description="Speech rate speed adjustment (e.g. '+0%', '+15%', '-10%').",
+        description="Speed adjustment rate parameter.",
         examples=["+0%"]
     )
     pitch: Optional[str] = Field(
         default="+0Hz",
-        description="Speech pitch adjustment (e.g. '+0Hz', '+2Hz').",
+        description="Pitch adjustment parameter.",
         examples=["+0Hz"]
     )
     format: Optional[str] = Field(
-        default="mp3",
-        description="Output audio format ('mp3' or 'wav').",
-        examples=["mp3"]
+        default="wav",
+        description="Output audio format (default: 'wav').",
+        examples=["wav"]
     )
 
 
 class TTSBase64Response(BaseModel):
     audio_base64: str = Field(..., description="Base64-encoded audio data.")
-    format: str = Field(default="mp3", description="Audio format (mp3 or wav).")
+    format: str = Field(default="wav", description="Audio format (wav).")
     voice: str = Field(..., description="Voice model used.")
 
 
 class HealthResponse(BaseModel):
     status: str = "ok"
-    default_voice: str
     engine: str
+    default_voice: str
+    is_loaded: bool
     sample_rate: int
+    error: Optional[str] = None
 
 
 # --- Authentication Dependency ---
 
 async def verify_api_key(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Security(security)
 ) -> bool:
     """
-    Validates Bearer token authentication against settings.API_KEY.
-    If API_KEY is not configured in the environment, authentication is bypassed.
+    Validates token authentication against settings.API_KEY.
+    Supports:
+    1. Bearer token in 'Authorization: Bearer <API_KEY>' header
+    2. 'X-API-Key' / 'api-key' custom header
+    3. '?api_key=<API_KEY>' or '?token=<API_KEY>' query parameters (crucial for HTML5 <audio> streaming)
+    
+    If settings.API_KEY is empty/unconfigured, authentication is bypassed (Open Access).
     """
-    if not settings.API_KEY:
+    configured_key = settings.API_KEY.strip() if settings.API_KEY else ""
+    if not configured_key:
         return True
 
-    if not credentials or not credentials.credentials:
-        logger.warning("Unauthorized access attempt: Missing Authorization header.")
+    token: Optional[str] = None
+
+    # 1. Bearer token in Authorization header
+    if credentials and credentials.credentials:
+        token = credentials.credentials.strip()
+
+    # 2. X-API-Key or api-key header
+    if not token:
+        raw_header = request.headers.get("x-api-key") or request.headers.get("api-key")
+        if raw_header:
+            token = raw_header.strip()
+
+    # 3. Query parameter ?api_key= or ?token=
+    if not token:
+        raw_param = request.query_params.get("api_key") or request.query_params.get("token")
+        if raw_param:
+            token = raw_param.strip()
+
+    if not token:
+        logger.warning(f"Unauthorized access to '{request.url.path}': Missing Authorization header or api_key parameter.")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized: Missing or invalid Bearer token.",
+            detail="Unauthorized: Missing or invalid Bearer token. Please provide your API key via 'Authorization: Bearer <API_KEY>' header, 'X-API-Key' header, or '?api_key=<API_KEY>' query parameter.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if credentials.credentials != settings.API_KEY:
-        logger.warning("Unauthorized access attempt: Invalid API key provided.")
+    if token != configured_key:
+        logger.warning(f"Unauthorized access to '{request.url.path}': Invalid API key provided.")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized: Invalid API key.",
@@ -104,30 +131,33 @@ async def verify_api_key(
 async def lifespan(app: FastAPI):
     """
     FastAPI lifespan context manager:
-    Initializes the unified TTS Service on startup.
+    Initializes and loads Meta MMS-TTS Hindi model on startup.
     """
     logger.info("==================================================")
-    logger.info(" Starting Neural & High-Fidelity TTS Microservice")
-    logger.info(f" Default Voice Model    : {settings.DEFAULT_VOICE}")
+    logger.info(" Starting Meta MMS-TTS Hindi Microservice")
+    logger.info(f" Default Model ID       : {settings.DEFAULT_VOICE}")
     logger.info(f" Max Text Length        : {settings.MAX_TEXT_LENGTH} chars")
     logger.info(f" Default Audio Format   : {settings.DEFAULT_FORMAT}")
     logger.info(f" Authentication         : {'Enabled (Bearer API_KEY)' if settings.API_KEY else 'Disabled (Open Access)'}")
     logger.info("==================================================")
 
     tts_service = get_tts_service()
-    logger.info(f"TTS Service initialized. Ready for requests on {settings.HOST}:{settings.PORT}")
+    if tts_service.is_loaded:
+        logger.info(f"MMS-TTS Service ready on {settings.HOST}:{settings.PORT} (Sample rate: {tts_service.sample_rate}Hz)")
+    else:
+        logger.warning(f"MMS-TTS Service initialized with error: {tts_service.load_error}")
 
     yield
 
-    logger.info("Shutting down TTS Microservice...")
+    logger.info("Shutting down MMS-TTS Microservice...")
 
 
 # --- FastAPI Application ---
 
 app = FastAPI(
-    title="Realistic Hindi Neural TTS Microservice",
-    description="High-definition, studio-grade Hindi, Hinglish, and Indian English Text-to-Speech API.",
-    version="2.0.0",
+    title="Meta MMS-TTS Hindi Microservice",
+    description="High-quality, low-memory Meta MMS Hindi (facebook/mms-tts-hin) VITS Text-to-Speech API for CPU & Render Free.",
+    version="2.1.0",
     lifespan=lifespan
 )
 
@@ -158,7 +188,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.get("/", response_class=HTMLResponse, tags=["Dashboard"], include_in_schema=False)
 async def dashboard_ui():
     """
-    Interactive web UI & Speech Playground for testing realistic Hindi voice synthesis.
+    Interactive web UI & Speech Playground for testing Meta MMS Hindi voice synthesis.
     """
     tts_service = get_tts_service()
     return HTMLResponse(
@@ -174,21 +204,23 @@ async def dashboard_ui():
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check():
     """
-    Public health check endpoint for uptime monitoring and readiness.
+    Public health check endpoint reporting MMS-TTS engine status and readiness.
     """
     tts_service = get_tts_service()
     return {
-        "status": "ok",
+        "status": "ok" if tts_service.is_loaded else "error",
+        "engine": "mms-tts-hin",
         "default_voice": tts_service.default_voice,
-        "engine": "neural_azure_hd",
-        "sample_rate": tts_service.sample_rate
+        "is_loaded": tts_service.is_loaded,
+        "sample_rate": tts_service.sample_rate,
+        "error": tts_service.load_error
     }
 
 
 @app.get("/voices", response_model=List[Dict[str, Any]], tags=["Voices"])
 async def list_voices():
     """
-    Lists all available realistic Neural and offline voice models with metadata.
+    Lists available Meta MMS Hindi voice models and aliases.
     """
     tts_service = get_tts_service()
     return tts_service.get_available_voices()
@@ -199,8 +231,8 @@ async def list_voices():
     response_class=Response,
     responses={
         200: {
-            "content": {"audio/mpeg": {}, "audio/wav": {}},
-            "description": "Returns raw audio stream (MP3 or WAV)."
+            "content": {"audio/wav": {}, "audio/mpeg": {}},
+            "description": "Returns raw WAV audio stream."
         },
         400: {"description": "Validation error (empty or oversized text)"},
         401: {"description": "Unauthorized"},
@@ -213,8 +245,8 @@ async def generate_tts_post(
     _authenticated: bool = Depends(verify_api_key)
 ):
     """
-    Synthesizes input text into a realistic human-grade speech audio stream (MP3/WAV).
-    Default voice: `hi-IN-SwaraNeural` (Ultra-realistic Hindi/Hinglish Female).
+    Synthesizes input text into a Meta MMS Hindi speech audio stream (WAV).
+    Default model: `facebook/mms-tts-hin`.
     """
     text = request.text.strip() if request.text else ""
 
@@ -240,7 +272,7 @@ async def generate_tts_post(
             pitch=request.pitch,
             output_format=request.format
         )
-        extension = "mp3" if "mpeg" in mime_type else "wav"
+        extension = "wav" if "wav" in mime_type else "mp3"
         return Response(
             content=audio_bytes,
             media_type=mime_type,
@@ -256,7 +288,7 @@ async def generate_tts_post(
         logger.error(f"TTS synthesis error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Speech synthesis failed."
+            detail=f"Speech synthesis failed: {e}"
         )
 
 
@@ -266,21 +298,28 @@ async def generate_tts_post(
     tags=["TTS"]
 )
 async def generate_tts_get(
-    text: str = Query(..., description="Text to synthesize into speech"),
-    voice: Optional[str] = Query(None, description="Voice ID (e.g. hi-IN-SwaraNeural)"),
+    text: str = Query(..., description="Hindi text to synthesize into speech"),
+    voice: Optional[str] = Query(None, description="Voice ID (default: facebook/mms-tts-hin)"),
     rate: Optional[str] = Query("+0%", description="Speed adjustment rate"),
     pitch: Optional[str] = Query("+0Hz", description="Pitch adjustment"),
-    format: Optional[str] = Query("mp3", description="Audio format (mp3 or wav)"),
+    format: Optional[str] = Query("wav", description="Audio format (wav)"),
     _authenticated: bool = Depends(verify_api_key)
 ):
     """
-    Direct GET streaming endpoint for HTML5 `<audio>` tags and WhatsApp direct audio URLs.
+    Direct GET streaming endpoint for HTML5 `<audio>` tags and web audio players.
     """
     clean_text = text.strip()
     if not clean_text:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Text parameter is required.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Query parameter 'text' cannot be empty.")
+
+    if len(clean_text) > settings.MAX_TEXT_LENGTH:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Text exceeds maximum limit of {settings.MAX_TEXT_LENGTH} characters."
+        )
 
     tts_service = get_tts_service()
+
     try:
         audio_bytes, mime_type = await tts_service.synthesize(
             text=clean_text,
@@ -289,7 +328,7 @@ async def generate_tts_get(
             pitch=pitch,
             output_format=format
         )
-        extension = "mp3" if "mpeg" in mime_type else "wav"
+        extension = "wav" if "wav" in mime_type else "mp3"
         return Response(
             content=audio_bytes,
             media_type=mime_type,
@@ -299,14 +338,25 @@ async def generate_tts_get(
                 "Access-Control-Allow-Origin": "*"
             }
         )
+    except ValueError as ve:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
     except Exception as e:
-        logger.error(f"TTS GET stream error: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="TTS stream failed.")
+        logger.error(f"GET /tts synthesis error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Speech synthesis failed: {e}"
+        )
 
 
 @app.post(
     "/tts/base64",
     response_model=TTSBase64Response,
+    responses={
+        200: {"description": "Returns JSON with base64-encoded audio string."},
+        400: {"description": "Validation error"},
+        401: {"description": "Unauthorized"},
+        500: {"description": "Synthesis error"}
+    },
     tags=["TTS"]
 )
 async def generate_tts_base64(
@@ -314,37 +364,39 @@ async def generate_tts_base64(
     _authenticated: bool = Depends(verify_api_key)
 ):
     """
-    Synthesizes input text and returns a Base64-encoded audio string in JSON.
-    Ideal for webhook integrations and JSON clients.
+    Synthesizes speech and returns base64-encoded audio inside a JSON payload.
+    Ideal for direct embedding in JSON-based microservices and webhooks.
     """
     text = request.text.strip() if request.text else ""
-
     if not text:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Text cannot be empty.")
 
     if len(text) > settings.MAX_TEXT_LENGTH:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Text length exceeds {settings.MAX_TEXT_LENGTH} chars limit."
+            detail=f"Text length ({len(text)} chars) exceeds maximum limit of {settings.MAX_TEXT_LENGTH}."
         )
 
     tts_service = get_tts_service()
 
     try:
-        b64_str, fmt = await tts_service.synthesize_base64(
+        b64_audio, fmt = await tts_service.synthesize_base64(
             text=text,
             voice=request.voice,
             rate=request.rate,
             pitch=request.pitch,
             output_format=request.format
         )
-        resolved_voice, _ = tts_service._resolve_voice_engine(request.voice)
-        return TTSBase64Response(
-            audio_base64=b64_str,
-            format=fmt,
-            voice=resolved_voice
-        )
+        return {
+            "audio_base64": b64_audio,
+            "format": fmt,
+            "voice": request.voice or tts_service.default_voice
+        }
+    except ValueError as ve:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
     except Exception as e:
-        logger.error(f"TTS base64 error: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Speech synthesis failed.")
-
+        logger.error(f"Base64 synthesis error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Speech synthesis failed: {e}"
+        )
